@@ -1,0 +1,104 @@
+# Welcome to Serverless!
+#
+# This file is the main config file for your service.
+# It's very minimal at this point and uses default values.
+# You can always add more config options for more control.
+# Just uncomment any of them to get that config option.
+#
+# For full config options, check the docs:
+#    docs.serverless.com
+#
+# Happy Coding!
+
+service: test-api
+custom:
+  pythonRequirements:
+    dockerizePip: true
+    fileName: ./requirements.txt
+    slim: true
+  prune:
+    automatic: true
+    number: 3
+  corsStatements:
+    origin: '*' # <-- Specify allowed origin. If required, allowed origin can be set to point from webapp deployment URL.
+    headers: # <-- Specify allowed headers
+      - Content-Type
+      - X-Amz-Date
+      - Authorization
+      - X-Api-Key
+      - X-Amz-Security-Token
+      - X-Amz-User-Agent
+      - Access-Control-Allow-Headers
+      - Access-Control-Allow-Origin
+    allowCredentials: false
+  lambdaBasicStatements:
+    Effect: Allow
+    Action: # Gives permission to Lambda in a specific region
+      - logs:CreateLogGroup
+      - logs:CreateLogStream
+      - logs:PutLogEvents
+    Resource: "*"
+  iamStatements:
+    Effect: Allow
+    Action:
+      - iam:*
+    Resource: "*"
+  snsStatements:
+    Effect: Allow
+    Action:
+      - sns:*
+    Resource: "*"
+provider:
+  name: aws
+  runtime: python3.8
+  environment:
+    REGION: ${file(./src/config.json):REGION}
+    STAGE: ${file(./src/config.json):STAGE}
+  stage: ${file(./src/config.json):STAGE}
+  region: ${file(./src/config.json):REGION}
+  iamRoleStatements:
+    - ${self:custom.snsStatements}
+    - ${self:custom.iamStatements}
+    - ${self:custom.lambdaBasicStatements}
+package:
+  exclude:
+    - ./**
+  include:
+    - ./src/**
+    - ./requirements.txt
+    - ./src/config.json
+functions:
+  listIAMUsers:
+    handler: src/listIAMUsers/lambda_function.lambda_handler
+    name: ${self:provider.stage}-listIAMusers
+    description: Get List IAM Users Lambda handler
+    timeout: 30
+    events:
+      - http:
+          path: users
+          method: post
+          cors: ${self:custom.corsStatements}
+          response:
+            headers:
+              Content-Type: "'application/json'"
+            template: $input.path('$.body')
+          integration: lambda
+  getAccessKeys:
+    handler: src/getAccessKeys/lambda_function.lambda_handler
+    name: ${self:provider.stage}-getAccessKeys
+    description: Get access keys Lambda handler
+    timeout: 30
+    events:
+      - http:
+          path: keys
+          method: post
+          cors: ${self:custom.corsStatements}
+          response:
+            headers:
+              Content-Type: "'application/json'"
+            template: $input.path('$.body')
+          integration: lambda
+plugins:
+  - serverless-python-requirements
+  - serverless-pseudo-parameters
+  - serverless-prune-plugin
